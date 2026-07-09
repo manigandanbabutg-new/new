@@ -1,0 +1,8 @@
+{
+  "name": "Notion Workspace",
+  "description": "A high-fidelity Notion clone featuring nested document structures, slash commands, custom cover images, and modular Java-inspired Controller/Service backend architecture with Gemini AI suggestions and summarization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

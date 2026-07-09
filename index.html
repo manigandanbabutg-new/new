@@ -1,0 +1,1420 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lumina - Creative AI Workspace</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+              display: ['Space Grotesk', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 9999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .editor-textarea:focus {
+        outline: none;
+      }
+      /* Slash Command list animation */
+      @keyframes popIn {
+        from { opacity: 0; transform: scale(0.95) translateY(4px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      .popover-animate {
+        animation: popIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+    </style>
+  </head>
+  <body class="bg-[#0a0a0a] text-slate-200 font-sans h-screen w-screen overflow-hidden flex select-none">
+
+    <!-- LEFT SIDEBAR SECTION -->
+    <div id="sidebar" class="w-64 bg-[#111] border-r border-white/5 h-full flex flex-col shrink-0 select-none">
+      <!-- Workspace Brand -->
+      <div class="p-4 border-b border-white/5 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="h-6 w-6 rounded bg-indigo-600 flex items-center justify-center font-display font-bold text-white text-sm shadow-lg shadow-indigo-600/30">L</div>
+          <span class="font-display font-bold text-sm tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">LUMINA</span>
+        </div>
+        <button onclick="createNewDocument(null)" class="text-slate-400 hover:text-white hover:bg-white/5 p-1 rounded transition-colors" title="Create top-level document">
+          <i data-lucide="plus" class="h-4 w-4"></i>
+        </button>
+      </div>
+
+      <!-- Quick Search -->
+      <div class="p-3 border-b border-white/5">
+        <div class="relative flex items-center">
+          <i data-lucide="search" class="absolute left-2.5 h-3.5 w-3.5 text-slate-500"></i>
+          <input 
+            type="text" 
+            id="sidebar-search" 
+            placeholder="Quick search pages..." 
+            oninput="handleSearch(this.value)"
+            class="w-full bg-[#161616] border border-white/5 rounded-md py-1.5 pl-8 pr-3 text-xs text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+          />
+        </div>
+      </div>
+
+      <!-- Scrollable Documents List -->
+      <div class="flex-1 overflow-y-auto px-2 py-3" id="documents-tree-container">
+        <!-- Dynmically Populated Tree -->
+      </div>
+
+      <!-- Trash Manager Toggler -->
+      <div class="p-2 border-t border-white/5 bg-[#0f0f0f]/50">
+        <button 
+          onclick="toggleTrashModal(true)"
+          class="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-red-950/15 rounded-md transition-all cursor-pointer"
+        >
+          <div class="flex items-center gap-2">
+            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+            <span>Trash Bin</span>
+          </div>
+          <span id="trash-badge-count" class="bg-red-950/35 text-red-400 border border-red-900/30 text-[10px] px-1.5 py-0.5 rounded-full font-mono">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN CENTRAL WORKSPACE -->
+    <div id="main-workspace-frame" class="flex-1 flex flex-col h-full overflow-hidden bg-[#0a0a0a]">
+      <!-- Header / Breadcrumbs -->
+      <div class="h-14 border-b border-white/5 px-6 flex items-center justify-between shrink-0 bg-[#0c0c0c]/90 backdrop-blur-md z-10">
+        <div class="flex items-center gap-2 text-xs font-semibold text-slate-400" id="breadcrumbs-bar">
+          <!-- Dynamically populated breadcrumbs -->
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Status Line / Acknowledgment -->
+          <div class="text-[10px] font-mono text-emerald-500 bg-emerald-950/20 border border-emerald-900/30 rounded px-2 py-1 flex items-center gap-1.5 select-none mr-2">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>REST API: Java</span>
+          </div>
+          
+          <button 
+            onclick="archiveCurrentDocument()" 
+            class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded transition-all cursor-pointer" 
+            title="Archive this document"
+          >
+            <i data-lucide="archive" class="h-4 w-4"></i>
+          </button>
+          
+          <button 
+            onclick="shareWorkspace()" 
+            class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded transition-all cursor-pointer shadow-lg shadow-indigo-600/10"
+          >
+            <i data-lucide="share-2" class="h-3 w-3"></i>
+            <span>Share</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Editor Content Container -->
+      <div class="flex-1 overflow-y-auto relative flex flex-col" id="editor-viewport">
+        <!-- Document Cover Panel -->
+        <div class="h-48 w-full relative overflow-hidden group shrink-0" id="cover-panel" style="display: none;">
+          <img id="cover-image" src="" alt="Cover" class="w-full h-full object-cover select-none pointer-events-none opacity-80" />
+          <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent"></div>
+          <button onclick="changeCoverPhoto()" class="absolute bottom-4 right-6 bg-black/60 hover:bg-black/80 text-white/90 border border-white/10 text-[10px] font-semibold px-2.5 py-1.5 rounded-md backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 cursor-pointer">
+            Randomize Cover
+          </button>
+        </div>
+
+        <!-- Main Editable Area -->
+        <div class="max-w-3xl w-full mx-auto px-8 lg:px-16 pt-6 pb-24 flex-1 flex flex-col" id="active-document-area" style="display: none;">
+          <!-- Emoji Picker & Title -->
+          <div class="relative flex items-center gap-3 mb-4 -mt-10 group" id="emoji-header-container">
+            <div class="relative z-10">
+              <button 
+                onclick="triggerEmojiPicker()" 
+                id="doc-emoji-btn"
+                class="h-16 w-16 rounded-2xl bg-[#121212] border border-white/10 text-3xl flex items-center justify-center hover:scale-105 hover:bg-[#161616] transition-all shadow-xl cursor-pointer"
+              >
+                📄
+              </button>
+              <!-- Hidden Emoji Picker Popover -->
+              <div id="emoji-picker-popover" class="absolute left-0 top-18 bg-[#161616] border border-white/10 rounded-lg p-2 grid grid-cols-5 gap-1.5 shadow-2xl z-50 popover-animate hidden w-48">
+                <button onclick="selectEmoji('📄')" class="text-xl p-1 hover:bg-white/10 rounded">📄</button>
+                <button onclick="selectEmoji('🚀')" class="text-xl p-1 hover:bg-white/10 rounded">🚀</button>
+                <button onclick="selectEmoji('🧠')" class="text-xl p-1 hover:bg-white/10 rounded">🧠</button>
+                <button onclick="selectEmoji('👋')" class="text-xl p-1 hover:bg-white/10 rounded">👋</button>
+                <button onclick="selectEmoji('💡')" class="text-xl p-1 hover:bg-white/10 rounded">💡</button>
+                <button onclick="selectEmoji('🎯')" class="text-xl p-1 hover:bg-white/10 rounded">🎯</button>
+                <button onclick="selectEmoji('📝')" class="text-xl p-1 hover:bg-white/10 rounded">📝</button>
+                <button onclick="selectEmoji('📂')" class="text-xl p-1 hover:bg-white/10 rounded">📂</button>
+                <button onclick="selectEmoji('🛠️')" class="text-xl p-1 hover:bg-white/10 rounded">🛠️</button>
+                <button onclick="selectEmoji('✨')" class="text-xl p-1 hover:bg-white/10 rounded">✨</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Document Title -->
+          <input 
+            type="text" 
+            id="document-title-input" 
+            placeholder="Untitled Document"
+            oninput="handleTitleUpdate(this.value)"
+            class="text-4xl font-display font-bold text-white bg-transparent border-none placeholder:text-slate-800 focus:outline-none focus:ring-0 w-full mb-3"
+          />
+
+          <!-- Dynamic Tags -->
+          <div class="flex flex-wrap items-center gap-1.5 mb-6" id="document-tags-container">
+            <!-- Populated via script -->
+          </div>
+
+          <!-- Content editable Workspace -->
+          <div 
+            id="editor-workspace" 
+            contenteditable="true" 
+            placeholder="Type '/' to bring up slash formatting commands or use AI assistant..." 
+            onkeyup="handleEditorKeyUp(event)"
+            onkeydown="handleEditorKeyDown(event)"
+            oninput="handleEditorInput(event)"
+            class="editor-textarea flex-1 w-full text-[14px] text-slate-300 leading-relaxed font-sans placeholder:text-slate-700 min-h-[300px] whitespace-pre-wrap focus:outline-none"
+          ></div>
+        </div>
+
+        <!-- No Active Document Placeholder -->
+        <div class="flex-1 flex flex-col items-center justify-center p-8 text-center select-none" id="no-document-placeholder">
+          <i data-lucide="file-text" class="h-12 w-12 text-slate-800 mb-3 animate-bounce"></i>
+          <h2 class="text-sm font-display font-bold text-slate-300 uppercase tracking-widest">No Active Workspace</h2>
+          <p class="text-xs text-slate-500 mt-2 max-w-sm">
+            Select a document from the sidebar navigation or click "+" to begin organizing, drafting, and summarizing with Lumina's AI Copilot.
+          </p>
+          <button 
+            onclick="createNewDocument(null)"
+            class="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded transition-colors shadow-lg shadow-indigo-600/10 cursor-pointer"
+          >
+            Create New Document
+          </button>
+        </div>
+
+        <!-- AI Spark Toolbar (At the bottom of the active document) -->
+        <div id="ai-spark-toolbar" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#121212]/95 border border-white/10 rounded-full px-4 py-2 flex items-center gap-3 shadow-2xl backdrop-blur-md z-40 popover-animate hidden">
+          <div class="flex items-center gap-1">
+            <i data-lucide="sparkles" class="h-3.5 w-3.5 text-indigo-400 animate-pulse"></i>
+            <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mr-2 select-none">AI SPARKS:</span>
+          </div>
+          <button onclick="triggerAISparks('summarize')" class="text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer">
+            <i data-lucide="file-text" class="h-3 w-3"></i>
+            <span>Summarize</span>
+          </button>
+          <button onclick="triggerAISparks('suggest-tags')" class="text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer">
+            <i data-lucide="hash" class="h-3 w-3"></i>
+            <span>Auto-Tags</span>
+          </button>
+          <button onclick="triggerAISparks('smart-suggestions')" class="text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 px-2.5 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer">
+            <i data-lucide="lightbulb" class="h-3 w-3"></i>
+            <span>Suggestions</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDEBAR SECTION - GEMINI AI CO-PILOT PANEL -->
+    <div id="ai-assistant-panel" class="w-80 bg-[#111] border-l border-white/5 h-full flex flex-col shrink-0">
+      <!-- Empty State -->
+      <div id="ai-empty-panel" class="flex-1 flex flex-col items-center justify-center p-6 text-center select-none">
+        <i data-lucide="sparkles" class="h-8 w-8 text-indigo-500/40 mb-2 animate-pulse"></i>
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest">AI Workspace panel</p>
+        <p class="text-[11px] text-slate-500 mt-2 max-w-[200px]">
+          Select an active workspace document to unlock smart summarization, auto-tagging, and direct AI chat interactions.
+        </p>
+      </div>
+
+      <!-- Active Co-Pilot Panel -->
+      <div id="ai-active-panel" class="flex-1 flex flex-col h-full overflow-hidden" style="display: none;">
+        <!-- Header -->
+        <div class="p-4 border-b border-white/5 flex items-center justify-between bg-transparent">
+          <div class="flex items-center gap-2">
+            <i data-lucide="sparkles" class="h-4 w-4 text-indigo-400 animate-pulse"></i>
+            <span class="text-xs font-display font-bold text-white tracking-widest uppercase">LUMINA AI COPILOT</span>
+          </div>
+          <div id="ai-loading-indicator" class="hidden">
+            <i data-lucide="loader-2" class="h-3.5 w-3.5 animate-spin text-indigo-400"></i>
+          </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="flex border-b border-white/5 bg-[#141414] text-xs shrink-0 p-1">
+          <button 
+            onclick="setAIPanelTab('summary')" 
+            id="tab-summary-btn"
+            class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer bg-white/10 text-white border border-white/5"
+          >
+            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
+            <span>Summary</span>
+          </button>
+          <button 
+            onclick="setAIPanelTab('suggestions')" 
+            id="tab-suggestions-btn"
+            class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer text-slate-400 hover:text-white"
+          >
+            <i data-lucide="lightbulb" class="h-3.5 w-3.5"></i>
+            <span>Ideas</span>
+          </button>
+          <button 
+            onclick="setAIPanelTab('chat')" 
+            id="tab-chat-btn"
+            class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer text-slate-400 hover:text-white"
+          >
+            <i data-lucide="message-square" class="h-3.5 w-3.5"></i>
+            <span>Chat</span>
+          </button>
+        </div>
+
+        <!-- Tab Contents Wrapper -->
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col min-h-0">
+          <!-- Summary Tab -->
+          <div id="ai-summary-tab" class="space-y-4 flex-1 flex flex-col">
+            <div class="flex items-center justify-between shrink-0">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Document Summary</span>
+              <button onclick="triggerAISparks('summarize')" class="text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 cursor-pointer">
+                <i data-lucide="refresh-cw" class="h-3 w-3"></i>
+                <span>Summarize</span>
+              </button>
+            </div>
+            
+            <div id="summary-content" class="flex-1 flex flex-col">
+              <!-- Inline content placeholder -->
+              <div class="text-center py-12 px-4 border border-dashed border-white/5 rounded-lg bg-[#121212]/40 flex-1 flex flex-col items-center justify-center">
+                <i data-lucide="file-text" class="h-6 w-6 text-slate-600 mb-1.5"></i>
+                <p class="text-xs text-slate-400 font-semibold">No summary generated</p>
+                <p class="text-[10px] text-slate-500 mt-1 max-w-[180px]">
+                  Click the button above to synthesize a smart bulleted summary of this document using Gemini.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Suggestions Tab -->
+          <div id="ai-suggestions-tab" class="space-y-4 flex-1 flex flex-col hidden">
+            <div class="flex items-center justify-between shrink-0">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Next Step suggestions</span>
+              <button onclick="triggerAISparks('smart-suggestions')" class="text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1 cursor-pointer">
+                <i data-lucide="refresh-cw" class="h-3 w-3"></i>
+                <span>Get Ideas</span>
+              </button>
+            </div>
+            
+            <div id="suggestions-content" class="flex-1 flex flex-col">
+              <!-- Inline content placeholder -->
+              <div class="text-center py-12 px-4 border border-dashed border-white/5 rounded-lg bg-[#121212]/40 flex-1 flex flex-col items-center justify-center">
+                <i data-lucide="lightbulb" class="h-6 w-6 text-slate-600 mb-1.5"></i>
+                <p class="text-xs text-slate-400 font-semibold">No suggestions loaded</p>
+                <p class="text-[10px] text-slate-500 mt-1 max-w-[180px]">
+                  Generate intelligent expansion blueprints and recommendations for this workspace.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat Tab -->
+          <div id="ai-chat-tab" class="flex-1 flex flex-col h-full min-h-0 hidden">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 select-none">Chat with Document</span>
+            
+            <!-- Chat history box -->
+            <div id="chat-messages-box" class="flex-1 overflow-y-auto space-y-2.5 mb-3 p-2.5 rounded-md bg-[#121212]/40 border border-white/5 max-h-[400px] min-h-[150px]">
+              <!-- Loaded messages here -->
+            </div>
+
+            <!-- Chat form panel -->
+            <form onsubmit="handleChatSubmit(event)" class="flex gap-1.5 shrink-0">
+              <input 
+                type="text" 
+                id="chat-input-field"
+                placeholder="Ask Gemini something..." 
+                class="flex-1 bg-[#121212] border border-white/5 rounded-md px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <button 
+                type="submit"
+                class="bg-indigo-600 hover:bg-indigo-500 text-white p-1.5 rounded-md flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <i data-lucide="send" class="h-3.5 w-3.5"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLASH COMMAND INLINE POPUP (FLOAT) -->
+    <div id="slash-command-menu" class="absolute bg-[#161616] rounded-lg border border-white/10 shadow-2xl w-64 max-h-80 overflow-y-auto p-1.5 z-50 flex flex-col popover-animate hidden">
+      <div class="px-2.5 py-1 text-[10px] font-semibold text-slate-500 border-b border-white/5 mb-1 select-none uppercase tracking-wider">Formatting commands</div>
+      <div class="space-y-0.5" id="slash-commands-list">
+        <!-- Command options populated dynamically -->
+      </div>
+    </div>
+
+    <!-- TRASH MODAL DIALOG -->
+    <div id="trash-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden select-none">
+      <div class="bg-[#121212] border border-white/10 rounded-xl max-w-md w-full p-6 shadow-2xl popover-animate flex flex-col max-h-[400px]">
+        <div class="flex items-center justify-between border-b border-white/5 pb-3 mb-4 shrink-0">
+          <div class="flex items-center gap-2 text-red-400 font-display font-bold">
+            <i data-lucide="trash-2" class="h-5 w-5"></i>
+            <span>Trash bin Manager</span>
+          </div>
+          <button onclick="toggleTrashModal(false)" class="text-slate-500 hover:text-slate-300 p-1 rounded hover:bg-white/5 transition-all cursor-pointer">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto space-y-2 pr-1 mb-4" id="trash-items-container">
+          <!-- Populated from server -->
+        </div>
+
+        <div class="flex justify-end gap-2 shrink-0 border-t border-white/5 pt-3">
+          <button onclick="toggleTrashModal(false)" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs rounded-md transition-all cursor-pointer">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MASTER CLIENT STATE SCRIPT -->
+    <script>
+      // State Management
+      let documents = [];
+      let archivedDocuments = [];
+      let activeDocId = null;
+      let expandedDocIds = new Set(['welcome']);
+      let searchQuery = '';
+      let activeTab = 'summary'; // 'summary' | 'suggestions' | 'chat'
+      let chatHistory = [];
+      let isAiLoading = false;
+      let cachedAIOutput = {}; // { docId: { summary, suggestions } }
+
+      // Slash command popover state
+      let slashMenuOpen = false;
+      let selectionRange = null;
+      let slashIndex = -1;
+      let selectedCommandIndex = 0;
+
+      const commands = [
+        { id: 'h1', title: 'Heading 1', description: 'Big section heading', icon: 'heading-1', category: 'Basic blocks', shortcut: '#' },
+        { id: 'h2', title: 'Heading 2', description: 'Medium section heading', icon: 'heading-2', category: 'Basic blocks', shortcut: '##' },
+        { id: 'h3', title: 'Heading 3', description: 'Small section heading', icon: 'heading-3', category: 'Basic blocks', shortcut: '###' },
+        { id: 'bullet', title: 'Bulleted List', description: 'Simple bulleted list', icon: 'list', category: 'Basic blocks', shortcut: '-' },
+        { id: 'todo', title: 'To-do List', description: 'Interactive checklist', icon: 'check-square', category: 'Basic blocks', shortcut: '[]' },
+        { id: 'code', title: 'Code Block', description: 'TypeScript code formatting', icon: 'code', category: 'Basic blocks', shortcut: '```' },
+        { id: 'ai-summarize', title: 'AI Summarize', description: 'Generate concise summary', icon: 'sparkles', category: 'AI Assistant', shortcut: null },
+        { id: 'ai-tags', title: 'AI Categorization', description: 'Brainstorm smart tags', icon: 'arrow-right-left', category: 'AI Assistant', shortcut: null },
+        { id: 'ai-suggest', title: 'AI Suggestions', description: 'Generate next recommendations', icon: 'lightbulb', category: 'AI Assistant', shortcut: null },
+      ];
+
+      // On Boot
+      window.addEventListener('DOMContentLoaded', async () => {
+        await fetchDocuments();
+        await fetchArchivedDocuments();
+        
+        // Select welcome document by default
+        if (documents.length > 0) {
+          const welcomeDoc = documents.find(d => d.id === 'welcome') || documents[0];
+          selectDocument(welcomeDoc.id);
+        }
+        
+        // Setup click listener to close popups
+        document.addEventListener('click', (e) => {
+          // Close emoji popover
+          const emojiPicker = document.getElementById('emoji-picker-popover');
+          const emojiBtn = document.getElementById('doc-emoji-btn');
+          if (emojiPicker && !emojiPicker.classList.contains('hidden') && e.target !== emojiBtn && !emojiPicker.contains(e.target)) {
+            emojiPicker.classList.add('hidden');
+          }
+          // Close slash popover
+          const slashMenu = document.getElementById('slash-command-menu');
+          if (slashMenu && !slashMenu.classList.contains('hidden') && !slashMenu.contains(e.target)) {
+            closeSlashCommandMenu();
+          }
+        });
+
+        // Initialize lucide
+        lucide.createIcons();
+      });
+
+      // API INTERACTIONS
+      async function fetchDocuments() {
+        try {
+          const response = await fetch('/api/documents');
+          documents = await response.json();
+          renderTree();
+        } catch (error) {
+          console.error('Error fetching documents:', error);
+        }
+      }
+
+      async function fetchArchivedDocuments() {
+        try {
+          const response = await fetch('/api/documents/archived');
+          archivedDocuments = await response.json();
+          document.getElementById('trash-badge-count').innerText = archivedDocuments.length;
+        } catch (error) {
+          console.error('Error fetching archived documents:', error);
+        }
+      }
+
+      async function selectDocument(id) {
+        activeDocId = id;
+        
+        // Highlight active document in tree
+        renderTree();
+
+        // Retrieve Document Info
+        try {
+          const response = await fetch(`/api/documents/${id}`);
+          if (!response.ok) return;
+          const doc = await response.json();
+
+          // Show Cover image
+          const coverPanel = document.getElementById('cover-panel');
+          const coverImage = document.getElementById('cover-image');
+          if (doc.coverUrl) {
+            coverImage.src = doc.coverUrl;
+            coverPanel.style.display = 'block';
+          } else {
+            coverPanel.style.display = 'none';
+          }
+
+          // Setup emoji picker button
+          document.getElementById('doc-emoji-btn').innerText = doc.icon || '📄';
+
+          // Set Title
+          document.getElementById('document-title-input').value = doc.title || '';
+
+          // Set Tags
+          renderTags(doc.tags || []);
+
+          // Set content editable content safely
+          const editor = document.getElementById('editor-workspace');
+          editor.innerHTML = formatMarkdownToHTML(doc.content || '');
+
+          // Render Breadcrumbs
+          await renderBreadcrumbs(id);
+
+          // Reveal workspace elements
+          document.getElementById('active-document-area').style.display = 'flex';
+          document.getElementById('no-document-placeholder').style.display = 'none';
+          document.getElementById('ai-spark-toolbar').classList.remove('hidden');
+
+          // Initialize Right AI Copilot
+          document.getElementById('ai-empty-panel').style.display = 'none';
+          document.getElementById('ai-active-panel').style.display = 'flex';
+
+          // Reset chat history for new doc
+          chatHistory = [
+            { id: 'welcome', sender: 'assistant', text: `Hi, I am Gemini. Ask me anything about "${doc.title || 'Untitled Page'}"!`, timestamp: getSimpleTime() }
+          ];
+          renderChatMessages();
+
+          // Load cached summary / suggestions or reset
+          if (cachedAIOutput[id]) {
+            renderSummaryTab(cachedAIOutput[id].summary);
+            renderSuggestionsTab(cachedAIOutput[id].suggestions);
+          } else {
+            resetAIOutputs();
+          }
+
+          lucide.createIcons();
+        } catch (error) {
+          console.error('Error loading active document:', error);
+        }
+      }
+
+      async function createNewDocument(parentId = null) {
+        try {
+          const response = await fetch('/api/documents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: 'Untitled Page', parentId, icon: '📄' })
+          });
+          const newDoc = await response.json();
+          await fetchDocuments();
+          if (parentId) {
+            expandedDocIds.add(parentId);
+          }
+          selectDocument(newDoc.id);
+        } catch (error) {
+          console.error('Error creating document:', error);
+        }
+      }
+
+      async function archiveCurrentDocument() {
+        if (!activeDocId) return;
+        try {
+          const response = await fetch(`/api/documents/${activeDocId}/archive`, { method: 'POST' });
+          if (response.ok) {
+            const nextDocId = documents.find(d => d.id !== activeDocId && !d.parentId)?.id || null;
+            await fetchDocuments();
+            await fetchArchivedDocuments();
+            if (nextDocId) {
+              selectDocument(nextDocId);
+            } else {
+              activeDocId = null;
+              document.getElementById('active-document-area').style.display = 'none';
+              document.getElementById('no-document-placeholder').style.display = 'flex';
+              document.getElementById('ai-spark-toolbar').classList.add('hidden');
+              document.getElementById('ai-empty-panel').style.display = 'flex';
+              document.getElementById('ai-active-panel').style.display = 'none';
+            }
+          }
+        } catch (error) {
+          console.error('Error archiving document:', error);
+        }
+      }
+
+      async function handleTitleUpdate(val) {
+        if (!activeDocId) return;
+        // Local Optimistic update to maintain high responsiveness
+        const item = documents.find(d => d.id === activeDocId);
+        if (item) {
+          item.title = val || 'Untitled Page';
+          renderTree();
+        }
+
+        // Trigger network debounced save
+        debotedSave({ title: val || 'Untitled Page' });
+      }
+
+      let saveTimeout;
+      function debotedSave(updates) {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(async () => {
+          try {
+            await fetch(`/api/documents/${activeDocId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updates)
+            });
+          } catch (err) {
+            console.error('Error auto-saving title/content updates:', err);
+          }
+        }, 1200);
+      }
+
+      // EDITING ENGINE (PARSES MARKDOWN TO HTML & VICE VERSA)
+      function formatMarkdownToHTML(md) {
+        if (!md) return '';
+        // Map markdown styles to contenteditable blocks
+        return md.split('\n').map(line => {
+          if (line.startsWith('# ')) {
+            return `<h1>${line.substring(2)}</h1>`;
+          } else if (line.startsWith('## ')) {
+            return `<h2>${line.substring(3)}</h2>`;
+          } else if (line.startsWith('### ')) {
+            return `<h3>${line.substring(4)}</h3>`;
+          } else if (line.startsWith('- ')) {
+            return `<ul><li>${line.substring(2)}</li></ul>`;
+          } else if (line.startsWith('[] ')) {
+            return `<div class="flex items-start gap-2 select-none"><input type="checkbox" class="mt-1 accent-indigo-500 rounded" /><div>${line.substring(3)}</div></div>`;
+          } else if (line.startsWith('[x] ')) {
+            return `<div class="flex items-start gap-2 select-none"><input type="checkbox" checked class="mt-1 accent-indigo-500 rounded" /><div>${line.substring(4)}</div></div>`;
+          } else if (line.startsWith('```')) {
+            const raw = line.replace(/```/g, '');
+            return `<pre><code>${raw}</code></pre>`;
+          }
+          return `<div>${line}</div>`;
+        }).join('');
+      }
+
+      function formatHTMLToMarkdown(html) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        let mdLines = [];
+
+        temp.childNodes.forEach(node => {
+          if (node.nodeName === 'H1') {
+            mdLines.push(`# ${node.innerText}`);
+          } else if (node.nodeName === 'H2') {
+            mdLines.push(`## ${node.innerText}`);
+          } else if (node.nodeName === 'H3') {
+            mdLines.push(`### ${node.innerText}`);
+          } else if (node.nodeName === 'UL') {
+            const items = node.querySelectorAll('li');
+            items.forEach(li => mdLines.push(`- ${li.innerText}`));
+          } else if (node.nodeName === 'PRE') {
+            mdLines.push(`\`\`\`\n${node.innerText}\n\`\`\``);
+          } else if (node.classList && node.classList.contains('flex')) {
+            // Checkbox todo
+            const checked = node.querySelector('input[type="checkbox"]')?.checked;
+            const text = node.querySelector('div')?.innerText || '';
+            mdLines.push(checked ? `[x] ${text}` : `[] ${text}`);
+          } else {
+            mdLines.push(node.innerText || '');
+          }
+        });
+
+        return mdLines.join('\n');
+      }
+
+      function handleEditorInput(e) {
+        if (!activeDocId) return;
+        const html = e.target.innerHTML;
+        const md = formatHTMLToMarkdown(html);
+        debotedSave({ content: md });
+      }
+
+      // TRASH MANAGER DIALOG
+      function toggleTrashModal(open) {
+        const modal = document.getElementById('trash-modal');
+        if (open) {
+          fetchArchivedDocuments();
+          renderTrashItems();
+          modal.classList.remove('hidden');
+        } else {
+          modal.classList.add('hidden');
+        }
+      }
+
+      function renderTrashItems() {
+        const container = document.getElementById('trash-items-container');
+        if (archivedDocuments.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-10">
+              <i data-lucide="trash-2" class="h-8 w-8 text-slate-700 mx-auto mb-2"></i>
+              <p class="text-xs text-slate-500 font-semibold">Your trash is clean!</p>
+            </div>
+          `;
+          lucide.createIcons();
+          return;
+        }
+
+        container.innerHTML = archivedDocuments.map(doc => `
+          <div class="flex items-center justify-between p-2.5 bg-white/5 border border-white/5 rounded-lg text-xs">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-base">${doc.icon || '📄'}</span>
+              <span class="font-semibold text-slate-300 truncate">${doc.title || 'Untitled Page'}</span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button 
+                onclick="restoreDocument('${doc.id}')"
+                class="px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/15 rounded text-[10px] font-semibold cursor-pointer"
+              >
+                Restore
+              </button>
+              <button 
+                onclick="deletePermanently('${doc.id}')"
+                class="px-2 py-1 bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/15 rounded text-[10px] font-semibold cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      async function restoreDocument(id) {
+        try {
+          const res = await fetch(`/api/documents/${id}/restore`, { method: 'POST' });
+          if (res.ok) {
+            await fetchDocuments();
+            await fetchArchivedDocuments();
+            renderTrashItems();
+            selectDocument(id);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      async function deletePermanently(id) {
+        if (!confirm('Are you sure you want to permanently delete this document? This cannot be undone.')) return;
+        try {
+          const res = await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            await fetchArchivedDocuments();
+            renderTrashItems();
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      // SEARCH & FILTER
+      function handleSearch(val) {
+        searchQuery = val.trim().toLowerCase();
+        renderTree();
+      }
+
+      // SIDEBAR TREE RENDER (SUPPORT MULTI LEVEL RECURSIVE PAGES)
+      function renderTree() {
+        const container = document.getElementById('documents-tree-container');
+        
+        let filteredDocs = documents;
+        if (searchQuery) {
+          filteredDocs = documents.filter(doc => doc.title.toLowerCase().includes(searchQuery));
+        }
+
+        // Separate top-level documents and subpages
+        const rootDocs = filteredDocs.filter(doc => !doc.parentId || !documents.some(d => d.id === doc.parentId));
+        
+        if (rootDocs.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-6 select-none">
+              <p class="text-[10px] font-semibold text-slate-600 uppercase tracking-widest">No Documents Found</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = renderLevel(rootDocs, filteredDocs, 0);
+        lucide.createIcons();
+      }
+
+      function renderLevel(levelDocs, allDocs, depth) {
+        return levelDocs.map(doc => {
+          const hasChildren = allDocs.some(d => d.parentId === doc.id);
+          const isExpanded = expandedDocIds.has(doc.id);
+          const isActive = doc.id === activeDocId;
+
+          // Nested lists
+          const childLevelDocs = allDocs.filter(d => d.parentId === doc.id);
+          const childrenHTML = (hasChildren && isExpanded) 
+            ? `<div class="pl-3.5 border-l border-white/5 ml-3.5 space-y-0.5">${renderLevel(childLevelDocs, allDocs, depth + 1)}</div>` 
+            : '';
+
+          return `
+            <div class="space-y-0.5">
+              <div 
+                class="w-full flex items-center justify-between group px-2 py-1.5 rounded-md text-left transition-all ${
+                  isActive 
+                    ? 'bg-white/10 text-white font-semibold' 
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }"
+              >
+                <!-- Click handler for active node -->
+                <div onclick="selectDocument('${doc.id}')" class="flex-1 flex items-center gap-2 min-w-0 cursor-pointer">
+                  <!-- Toggle arrow -->
+                  <span onclick="event.stopPropagation(); toggleFolder('${doc.id}')" class="p-0.5 rounded hover:bg-white/10 text-slate-500 hover:text-slate-200 transition-colors cursor-pointer">
+                    ${hasChildren 
+                      ? `<i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="h-3 w-3"></i>` 
+                      : `<span class="h-3 w-3 inline-block"></span>`
+                    }
+                  </span>
+                  <!-- Document icon -->
+                  <span class="text-sm shrink-0">${doc.icon || '📄'}</span>
+                  <!-- Document name -->
+                  <span class="truncate text-xs">${doc.title || 'Untitled Page'}</span>
+                </div>
+
+                <!-- Hover actions -->
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onclick="createNewDocument('${doc.id}')" class="p-0.5 rounded hover:bg-white/10 text-slate-400 hover:text-white cursor-pointer" title="Add sub-page">
+                    <i data-lucide="plus" class="h-3 w-3"></i>
+                  </button>
+                  <button onclick="archiveDocumentFromTree('${doc.id}')" class="p-0.5 rounded hover:bg-white/10 text-slate-400 hover:text-red-400 cursor-pointer" title="Archive page">
+                    <i data-lucide="archive" class="h-3 w-3"></i>
+                  </button>
+                </div>
+              </div>
+              ${childrenHTML}
+            </div>
+          `;
+        }).join('');
+      }
+
+      function toggleFolder(id) {
+        if (expandedDocIds.has(id)) {
+          expandedDocIds.delete(id);
+        } else {
+          expandedDocIds.add(id);
+        }
+        renderTree();
+      }
+
+      async function archiveDocumentFromTree(id) {
+        try {
+          const response = await fetch(`/api/documents/${id}/archive`, { method: 'POST' });
+          if (response.ok) {
+            await fetchDocuments();
+            await fetchArchivedDocuments();
+            if (activeDocId === id) {
+              const nextDoc = documents[0] || null;
+              if (nextDoc) selectDocument(nextDoc.id);
+            }
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      // EMOJI PICKER HANDLING
+      function triggerEmojiPicker() {
+        const picker = document.getElementById('emoji-picker-popover');
+        picker.classList.toggle('hidden');
+      }
+
+      async function selectEmoji(emoji) {
+        if (!activeDocId) return;
+        document.getElementById('doc-emoji-btn').innerText = emoji;
+        document.getElementById('emoji-picker-popover').classList.add('hidden');
+
+        // Optimistic update
+        const doc = documents.find(d => d.id === activeDocId);
+        if (doc) {
+          doc.icon = emoji;
+          renderTree();
+        }
+
+        try {
+          await fetch(`/api/documents/${activeDocId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ icon: emoji })
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      // RANDOM COVER CHANGER
+      async function changeCoverPhoto() {
+        if (!activeDocId) return;
+        const coverOptions = [
+          'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
+          'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1200&q=80',
+          'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1200&q=80',
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80'
+        ];
+        const randomCover = coverOptions[Math.floor(Math.random() * coverOptions.length)];
+        
+        document.getElementById('cover-image').src = randomCover;
+
+        try {
+          await fetch(`/api/documents/${activeDocId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ coverUrl: randomCover })
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      // RE-USEABLE TAG COMPONENT
+      function renderTags(tags) {
+        const container = document.getElementById('document-tags-container');
+        let html = tags.map(tag => `
+          <span class="inline-flex items-center gap-1 bg-[#121212] border border-white/5 text-[10px] font-semibold px-2 py-0.5 rounded-md text-indigo-400">
+            <span>${tag}</span>
+            <button onclick="removeTag('${tag}')" class="hover:text-red-400 font-bold ml-1 cursor-pointer">&times;</button>
+          </span>
+        `).join('');
+
+        html += `
+          <input 
+            type="text" 
+            placeholder="+ Tag..." 
+            onkeydown="handleTagInput(event)"
+            class="bg-transparent border-none text-[10px] text-slate-500 placeholder:text-slate-700 focus:outline-none focus:ring-0 max-w-[64px]"
+          />
+        `;
+        container.innerHTML = html;
+      }
+
+      async function handleTagInput(e) {
+        if (e.key === 'Enter') {
+          const val = e.target.value.trim();
+          if (val) {
+            const doc = documents.find(d => d.id === activeDocId);
+            if (doc) {
+              const updatedTags = [...(doc.tags || []), val];
+              doc.tags = updatedTags;
+              renderTags(updatedTags);
+
+              try {
+                await fetch(`/api/documents/${activeDocId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ tags: updatedTags })
+                });
+              } catch (err) {
+                console.error(err);
+              }
+            }
+          }
+          e.target.value = '';
+        }
+      }
+
+      async function removeTag(tag) {
+        const doc = documents.find(d => d.id === activeDocId);
+        if (doc) {
+          const updatedTags = (doc.tags || []).filter(t => t !== tag);
+          doc.tags = updatedTags;
+          renderTags(updatedTags);
+
+          try {
+            await fetch(`/api/documents/${activeDocId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tags: updatedTags })
+            });
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+
+      // BREADCRUMBS LOADER
+      async function renderBreadcrumbs(id) {
+        try {
+          const res = await fetch(`/api/documents/${id}/breadcrumbs`);
+          const crumbs = await res.json();
+          const container = document.getElementById('breadcrumbs-bar');
+          
+          container.innerHTML = crumbs.map((crumb, idx) => {
+            const isLast = idx === crumbs.length - 1;
+            return `
+              <div class="flex items-center gap-1">
+                <span>${crumb.icon || '📄'}</span>
+                <span class="${isLast ? 'text-white font-bold' : 'hover:text-slate-200 transition-colors cursor-pointer'}" onclick="selectDocument('${crumb.id}')">
+                  ${crumb.title || 'Untitled Page'}
+                </span>
+                ${!isLast ? `<i data-lucide="chevron-right" class="h-3 w-3 text-slate-600"></i>` : ''}
+              </div>
+            `;
+          }).join('');
+          lucide.createIcons();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      // ASYNC SMART AI SERVICE OPERATIONS
+      async function triggerAISparks(type) {
+        if (!activeDocId) return;
+        
+        const doc = documents.find(d => d.id === activeDocId);
+        const title = doc ? doc.title : '';
+        const editor = document.getElementById('editor-workspace');
+        const content = formatHTMLToMarkdown(editor.innerHTML);
+
+        toggleAILoading(true);
+
+        try {
+          if (type === 'summarize') {
+            setAIPanelTab('summary');
+            const res = await fetch('/api/ai/summarize', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title, content })
+            });
+            const data = await res.json();
+            
+            cachedAIOutput[activeDocId] = { ...(cachedAIOutput[activeDocId] || {}), summary: data.summary };
+            renderSummaryTab(data.summary);
+          } else if (type === 'suggest-tags') {
+            const res = await fetch('/api/ai/suggest-tags', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title, content })
+            });
+            const data = await res.json();
+            
+            // Auto-append tags on active document
+            if (doc && data.tags) {
+              const finalTags = Array.from(new Set([...(doc.tags || []), ...data.tags]));
+              doc.tags = finalTags;
+              renderTags(finalTags);
+
+              await fetch(`/api/documents/${activeDocId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: finalTags })
+              });
+            }
+          } else if (type === 'smart-suggestions') {
+            setAIPanelTab('suggestions');
+            const res = await fetch('/api/ai/smart-suggestions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title, content })
+            });
+            const data = await res.json();
+
+            cachedAIOutput[activeDocId] = { ...(cachedAIOutput[activeDocId] || {}), suggestions: data.suggestions };
+            renderSuggestionsTab(data.suggestions);
+          }
+        } catch (error) {
+          console.error(error);
+        } finally {
+          toggleAILoading(false);
+        }
+      }
+
+      function toggleAILoading(loading) {
+        isAiLoading = loading;
+        const ind = document.getElementById('ai-loading-indicator');
+        if (loading) {
+          ind.classList.remove('hidden');
+        } else {
+          ind.classList.add('hidden');
+        }
+      }
+
+      function setAIPanelTab(tab) {
+        activeTab = tab;
+        
+        // Hide/Show tab contents
+        document.getElementById('ai-summary-tab').classList.add('hidden');
+        document.getElementById('ai-suggestions-tab').classList.add('hidden');
+        document.getElementById('ai-chat-tab').classList.add('hidden');
+
+        document.getElementById(`ai-${tab}-tab`).classList.remove('hidden');
+
+        // Style tabs buttons
+        const tabs = ['summary', 'suggestions', 'chat'];
+        tabs.forEach(t => {
+          const btn = document.getElementById(`tab-${t}-btn`);
+          if (t === tab) {
+            btn.className = "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer bg-white/10 text-white border border-white/5";
+          } else {
+            btn.className = "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer text-slate-400 hover:text-white";
+          }
+        });
+      }
+
+      function renderSummaryTab(summary) {
+        const container = document.getElementById('summary-content');
+        if (!summary) {
+          container.innerHTML = `
+            <div class="text-center py-12 px-4 border border-dashed border-white/5 rounded-lg bg-[#121212]/40 flex-1 flex flex-col items-center justify-center">
+              <i data-lucide="file-text" class="h-6 w-6 text-slate-600 mb-1.5"></i>
+              <p class="text-xs text-slate-400 font-semibold">No summary generated</p>
+              <p class="text-[10px] text-slate-500 mt-1 max-w-[180px]">
+                Click the button above to synthesize a smart bulleted summary of this document using Gemini.
+              </p>
+            </div>
+          `;
+          lucide.createIcons();
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="bg-[#161616] border border-white/10 p-3.5 rounded-lg text-xs text-slate-300 leading-relaxed font-sans space-y-2 shadow-xl relative group">
+            <button 
+              onclick="copyToClipboard(this)" 
+              class="absolute top-2 right-2 p-1 hover:bg-white/10 rounded text-slate-500 hover:text-slate-200 transition-all cursor-pointer"
+            >
+              <i data-lucide="copy" class="h-3 w-3"></i>
+            </button>
+            <div class="whitespace-pre-wrap">${summary}</div>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+
+      function renderSuggestionsTab(suggestions) {
+        const container = document.getElementById('suggestions-content');
+        if (!suggestions) {
+          container.innerHTML = `
+            <div class="text-center py-12 px-4 border border-dashed border-white/5 rounded-lg bg-[#121212]/40 flex-1 flex flex-col items-center justify-center">
+              <i data-lucide="lightbulb" class="h-6 w-6 text-slate-600 mb-1.5"></i>
+              <p class="text-xs text-slate-400 font-semibold">No suggestions loaded</p>
+              <p class="text-[10px] text-slate-500 mt-1 max-w-[180px]">
+                Generate intelligent expansion blueprints and recommendations for this workspace.
+              </p>
+            </div>
+          `;
+          lucide.createIcons();
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="bg-[#161616] border border-white/10 p-3.5 rounded-lg text-xs text-slate-300 leading-relaxed space-y-2 shadow-xl relative group">
+            <button 
+              onclick="copyToClipboard(this)" 
+              class="absolute top-2 right-2 p-1 hover:bg-white/10 rounded text-slate-500 hover:text-slate-200 transition-all cursor-pointer"
+            >
+              <i data-lucide="copy" class="h-3 w-3"></i>
+            </button>
+            <div class="whitespace-pre-wrap">${suggestions}</div>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+
+      function resetAIOutputs() {
+        renderSummaryTab(null);
+        renderSuggestionsTab(null);
+      }
+
+      // CLIPBOARD UTILITY
+      function copyToClipboard(button) {
+        const text = button.nextElementSibling.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+          button.innerHTML = `<i data-lucide="check" class="h-3 w-3 text-green-400"></i>`;
+          lucide.createIcons();
+          setTimeout(() => {
+            button.innerHTML = `<i data-lucide="copy" class="h-3 w-3"></i>`;
+            lucide.createIcons();
+          }, 1500);
+        });
+      }
+
+      // COPILOT CHAT ENGINE
+      function renderChatMessages() {
+        const container = document.getElementById('chat-messages-box');
+        container.innerHTML = chatHistory.map(msg => `
+          <div class="flex flex-col max-w-[85%] rounded-lg p-2.5 text-[11px] leading-relaxed shadow-md ${
+            msg.sender === 'user' 
+              ? 'bg-indigo-600 text-white ml-auto shadow-indigo-600/10' 
+              : 'bg-[#161616] border border-white/10 text-slate-300 mr-auto'
+          }">
+            <div class="flex items-center gap-1 mb-1 border-b border-white/5 pb-0.5 opacity-80 select-none">
+              <i data-lucide="${msg.sender === 'user' ? 'user' : 'sparkles'}" class="h-2.5 w-2.5 ${msg.sender === 'user' ? '' : 'text-indigo-400'}"></i>
+              <span class="font-bold uppercase tracking-wider text-[8px]">${msg.sender === 'user' ? 'Me' : 'Gemini'}</span>
+              <span class="text-[8px] ml-auto opacity-60">${msg.timestamp}</span>
+            </div>
+            <div class="whitespace-pre-wrap">${msg.text}</div>
+          </div>
+        `).join('');
+        container.scrollTop = container.scrollHeight;
+        lucide.createIcons();
+      }
+
+      async function handleChatSubmit(e) {
+        e.preventDefault();
+        const input = document.getElementById('chat-input-field');
+        const userText = input.value.trim();
+        if (!userText || !activeDocId) return;
+
+        // Reset input
+        input.value = '';
+
+        // Push User Message
+        chatHistory.push({
+          id: Math.random().toString(),
+          sender: 'user',
+          text: userText,
+          timestamp: getSimpleTime()
+        });
+        renderChatMessages();
+
+        // Push temporary loading bubble
+        const box = document.getElementById('chat-messages-box');
+        const loaderBubble = document.createElement('div');
+        loaderBubble.id = 'chat-typing-bubble';
+        loaderBubble.className = "flex items-center gap-1.5 p-2.5 mr-auto bg-[#161616] border border-white/10 rounded-lg text-slate-500 text-[10px]";
+        loaderBubble.innerHTML = `
+          <i data-lucide="loader-2" class="h-3 w-3 animate-spin text-indigo-400"></i>
+          <span>Thinking...</span>
+        `;
+        box.appendChild(loaderBubble);
+        box.scrollTop = box.scrollHeight;
+        lucide.createIcons();
+
+        // Get Document context
+        const doc = documents.find(d => d.id === activeDocId);
+        const title = doc ? doc.title : '';
+        const editor = document.getElementById('editor-workspace');
+        const content = formatHTMLToMarkdown(editor.innerHTML);
+
+        try {
+          const res = await fetch('/api/ai/writing-assistant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title,
+              content,
+              prompt: `Review the active document. Respond to the user request/question with precision. User: "${userText}"`
+            })
+          });
+          const data = await res.json();
+          
+          // Remove loader bubble
+          const typing = document.getElementById('chat-typing-bubble');
+          if (typing) typing.remove();
+
+          chatHistory.push({
+            id: Math.random().toString(),
+            sender: 'assistant',
+            text: data.text || 'Lumina is having trouble responding.',
+            timestamp: getSimpleTime()
+          });
+          renderChatMessages();
+        } catch (err) {
+          console.error(err);
+          const typing = document.getElementById('chat-typing-bubble');
+          if (typing) typing.remove();
+        }
+      }
+
+      // SLASH COMMANDS PARSER & INTERACTIVE LISTENER
+      function handleEditorKeyUp(e) {
+        if (e.key === '/') {
+          const selection = window.getSelection();
+          if (selection.rangeCount > 0) {
+            selectionRange = selection.getRangeAt(0).cloneRange();
+            const rect = selectionRange.getBoundingClientRect();
+            
+            // Show popover near caret position
+            openSlashCommandMenu(rect.left, rect.top);
+          }
+        } else if (e.key === 'Escape') {
+          closeSlashCommandMenu();
+        }
+      }
+
+      function handleEditorKeyDown(e) {
+        if (slashMenuOpen) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedCommandIndex = (selectedCommandIndex + 1) % commands.length;
+            renderSlashMenu();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedCommandIndex = (selectedCommandIndex - 1 + commands.length) % commands.length;
+            renderSlashMenu();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            executeSlashCommand(commands[selectedCommandIndex].id);
+          }
+        }
+      }
+
+      function openSlashCommandMenu(x, y) {
+        const menu = document.getElementById('slash-command-menu');
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y + 20}px`;
+        menu.classList.remove('hidden');
+        slashMenuOpen = true;
+        selectedCommandIndex = 0;
+        renderSlashMenu();
+      }
+
+      function closeSlashCommandMenu() {
+        const menu = document.getElementById('slash-command-menu');
+        menu.classList.add('hidden');
+        slashMenuOpen = false;
+      }
+
+      function renderSlashMenu() {
+        const list = document.getElementById('slash-commands-list');
+        
+        // Group commands by category
+        const categories = [...new Set(commands.map(c => c.category))];
+        
+        list.innerHTML = categories.map(cat => {
+          const catCmds = commands.filter(c => c.category === cat);
+          const itemsHTML = catCmds.map(cmd => {
+            const indexInMaster = commands.findIndex(c => c.id === cmd.id);
+            const isSelected = indexInMaster === selectedCommandIndex;
+
+            return `
+              <div 
+                onclick="executeSlashCommand('${cmd.id}')"
+                class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left transition-all cursor-pointer ${
+                  isSelected 
+                    ? 'bg-white/10 text-white' 
+                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                }"
+              >
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="h-6 w-6 rounded border border-white/5 flex items-center justify-center bg-[#121212] shrink-0 shadow-sm">
+                    <i data-lucide="${cmd.icon}" class="h-3 w-3 text-slate-400"></i>
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-[11px] font-semibold truncate leading-none">${cmd.title}</p>
+                    <p class="text-[9px] text-slate-500 truncate leading-normal mt-0.5">${cmd.description}</p>
+                  </div>
+                </div>
+                ${cmd.shortcut ? `<span class="text-[8px] font-mono font-medium text-slate-500 bg-white/5 px-1 py-0.5 rounded border border-white/5 shrink-0">${cmd.shortcut}</span>` : ''}
+              </div>
+            `;
+          }).join('');
+
+          return `
+            <div class="space-y-0.5">
+              <div class="px-2.5 py-1 text-[8px] font-bold text-slate-500 tracking-wider uppercase bg-[#1a1a1a]/40 rounded-sm select-none">${cat}</div>
+              ${itemsHTML}
+            </div>
+          `;
+        }).join('');
+
+        lucide.createIcons();
+      }
+
+      async function executeSlashCommand(id) {
+        closeSlashCommandMenu();
+
+        // Restore caret selection
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(selectionRange);
+
+        // Remove the preceding '/' trigger character
+        document.execCommand('delete', false, null);
+
+        // Execute specific formatting action
+        if (id === 'h1') {
+          document.execCommand('formatBlock', false, '<h1>');
+        } else if (id === 'h2') {
+          document.execCommand('formatBlock', false, '<h2>');
+        } else if (id === 'h3') {
+          document.execCommand('formatBlock', false, '<h3>');
+        } else if (id === 'bullet') {
+          document.execCommand('insertUnorderedList', false, null);
+        } else if (id === 'todo') {
+          // Insert Checklist block
+          const html = `<div class="flex items-start gap-2 select-none"><input type="checkbox" class="mt-1 accent-indigo-500 rounded" /><div>New Todo task</div></div>`;
+          document.execCommand('insertHTML', false, html);
+        } else if (id === 'code') {
+          const html = `<pre><code>// Paste or write typescript code here</code></pre>`;
+          document.execCommand('insertHTML', false, html);
+        } else if (id === 'ai-summarize') {
+          await triggerAISparks('summarize');
+        } else if (id === 'ai-tags') {
+          await triggerAISparks('suggest-tags');
+        } else if (id === 'ai-suggest') {
+          await triggerAISparks('smart-suggestions');
+        }
+
+        // Trigger save
+        const editor = document.getElementById('editor-workspace');
+        const md = formatHTMLToMarkdown(editor.innerHTML);
+        debotedSave({ content: md });
+      }
+
+      // HELPER TIME & ALERT UTILS
+      function getSimpleTime() {
+        const d = new Date();
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function shareWorkspace() {
+        const url = window.location.href;
+        navigator.clipboard.writeText(url).then(() => {
+          alert('Workspace link copied successfully! Ready to share with your team.');
+        });
+      }
+    </script>
+  </body>
+</html>
