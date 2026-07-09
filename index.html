@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="manifest.json">
     <title>Lumina - Creative AI Workspace</title>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,6 +27,26 @@
         }
       }
     </script>
+    <style>
+           
+    .overlay-card button:hover {
+      background: rgba(255,255,255,0.25);
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Simple high contrast focus ring for keyboard navigation */
+    *:focus {
+      outline: 4px solid #fbbf24 !important;
+      outline-offset: 4px !important;
+    }
+   </style>
     <style>
       ::-webkit-scrollbar {
         width: 6px;
@@ -55,6 +76,64 @@
     </style>
   </head>
   <body class="bg-[#0a0a0a] text-slate-200 font-sans h-screen w-screen overflow-hidden flex select-none">
+
+      <!-- ================= PWA INSTALL OVERLAY ================= -->
+<div
+  id="pwa-overlay"
+  class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/70 backdrop-blur-md p-6">
+
+  <div
+    class="w-full max-w-md rounded-3xl border border-white/20
+           bg-white/10 backdrop-blur-2xl
+           shadow-2xl p-8 text-center">
+
+    <div
+      class="w-20 h-20 mx-auto rounded-full
+             bg-amber-400 text-stone-900
+             flex items-center justify-center shadow-xl">
+
+      <i data-lucide="download" class="w-10 h-10"></i>
+
+    </div>
+
+    <h2 class="text-3xl font-black mt-6 text-white">
+      Install App
+    </h2>
+
+    <p class="text-stone-300 mt-3 leading-relaxed">
+      Install Voice Fitness Trainer on your device for a faster,
+      full-screen experience and offline support.
+    </p>
+
+    <button
+      id="install-btn"
+      class="mt-8 w-full py-4
+             rounded-2xl
+             bg-amber-400
+             hover:bg-amber-300
+             text-stone-900
+             font-black
+             text-lg
+             transition">
+
+      Install App
+
+    </button>
+
+    <button
+      id="close-install-overlay"
+      class="mt-4 w-full py-3
+             rounded-xl
+             bg-stone-800
+             hover:bg-stone-700
+             text-white">
+
+      Continue in Browser
+
+    </button>
+
+  </div>
+
 
     <!-- LEFT SIDEBAR SECTION -->
     <div id="sidebar" class="w-64 bg-[#111] border-r border-white/5 h-full flex flex-col shrink-0 select-none">
@@ -1415,6 +1494,64 @@
           alert('Workspace link copied successfully! Ready to share with your team.');
         });
       }
+
+       /* ==========================================
+      PWA INSTALL OVERLAY
+========================================== */
+
+let deferredPrompt = null;
+
+const overlay = document.getElementById("pwa-overlay");
+const installBtn = document.getElementById("install-btn");
+const closeOverlay = document.getElementById("close-install-overlay");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+
+    e.preventDefault();
+
+    deferredPrompt = e;
+
+    overlay.classList.remove("hidden");
+    overlay.classList.add("flex");
+
+});
+
+installBtn.addEventListener("click", async () => {
+
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === "accepted") {
+
+        console.log("PWA Installed");
+
+    }
+
+    deferredPrompt = null;
+
+    overlay.classList.add("hidden");
+    overlay.classList.remove("flex");
+
+});
+
+closeOverlay.addEventListener("click", () => {
+
+    overlay.classList.add("hidden");
+    overlay.classList.remove("flex");
+
+});
+
+window.addEventListener("appinstalled", () => {
+
+    overlay.classList.add("hidden");
+    overlay.classList.remove("flex");
+
+    deferredPrompt = null;
+
+});
     </script>
   </body>
 </html>
